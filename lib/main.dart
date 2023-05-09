@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'app_widget.dart';
+
 main() {
-  runApp(Container(
-    child: Text('Novo app Flutter.',
-        textDirection: TextDirection.ltr,
-        style: TextStyle(color: Colors.white)),
-  ));
+  runApp(AppWiget());
 }
