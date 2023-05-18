@@ -77,6 +77,7 @@ class SpeechScreenState extends State<SpeechScreen> {
   void initState() {
     super.initState();
     _speech = stt.SpeechToText();
+    _listen();
   }
 
   @override
@@ -134,12 +135,18 @@ class SpeechScreenState extends State<SpeechScreen> {
       if (available) {
         setState(() => _isListening = true);
         _speech.listen(
-          onResult: (val) => setState(() {
-            _text = val.recognizedWords;
-            if (val.hasConfidenceRating && val.confidence > 0) {
-              _confidence = val.confidence;
-            }
-          }),
+          listenFor: Duration(minutes: 2),
+          onResult: (val) => {
+            if (val.recognizedWords.toLowerCase() == 'isaac')
+              {
+                setState(() {
+                  _text = val.recognizedWords;
+                  if (val.hasConfidenceRating && val.confidence > 0) {
+                    _confidence = val.confidence;
+                  }
+                })
+              }
+          },
         );
       }
     } else {
