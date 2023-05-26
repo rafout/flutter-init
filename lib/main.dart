@@ -4,6 +4,8 @@ import 'package:flutter_gif/flutter_gif.dart';
 import 'package:highlight_text/highlight_text.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 void main() {
   runApp(MyApp());
@@ -35,6 +37,8 @@ class SpeechScreenState extends State<SpeechScreen>
     with TickerProviderStateMixin {
   final FlutterTts flutterTts = FlutterTts();
   late FlutterGifController controller;
+
+  final apiUrl = 'https://api.openai.com/v1/chat/completions';
 
   final Map<String, HighlightedWord> _highlights = {
     'flutter': HighlightedWord(
@@ -78,6 +82,7 @@ class SpeechScreenState extends State<SpeechScreen>
   bool _isListening = false;
   bool _isSpeaking = false;
   String _text = 'Olá, o que você deseja?';
+  String _voice = '';
   double _confidence = 1.0;
 
   @override
@@ -198,6 +203,8 @@ class SpeechScreenState extends State<SpeechScreen>
   }
 
   void _play() async {
+    _voice = await getChatGptResponse(_text);
+
     setState(() {
       _isSpeaking = true;
     });
@@ -209,7 +216,7 @@ class SpeechScreenState extends State<SpeechScreen>
     );
 
     await flutterTts.setLanguage('pt-BR');
-    await flutterTts.speak(_text);
+    await flutterTts.speak(_voice);
 
     flutterTts.setCompletionHandler(() {
       setState(() {
@@ -217,5 +224,32 @@ class SpeechScreenState extends State<SpeechScreen>
         controller.reset();
       });
     });
+  }
+
+  Future<String> getChatGptResponse(String message) async {
+    final headers = {
+      'Content-Type': 'application/json',
+      'Authorization':
+          'Bearer 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',
+    };
+
+    final data = {
+      'model': 'gpt-3.5-turbo',
+      'messages': [
+        {"role": "user", "content": message}
+      ],
+      'max_tokens': 50,
+    };
+    print(Uri.parse(apiUrl));
+    final response = await http.post(Uri.parse(apiUrl),
+        headers: headers, body: jsonEncode(data));
+
+    if (response.statusCode == 200) {
+      final jsonResponse = jsonDecode(response.body);
+      final chatGptResponse = jsonResponse['choices'][0]['message']['content'];
+      return chatGptResponse;
+    } else {
+      throw Exception('Failed to get ChatGPT response');
+    }
   }
 }
