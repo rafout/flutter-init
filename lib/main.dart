@@ -1,6 +1,5 @@
 import 'package:avatar_glow/avatar_glow.dart';
 import 'package:flutter/material.dart';
-import 'package:highlight_text/highlight_text.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:http/http.dart' as http;
@@ -43,12 +42,13 @@ class SpeechScreenState extends State<SpeechScreen>
   bool _isSpeaking = false;
   String _text = 'Olá, o que você deseja?';
   String _voice = '';
+  int _interaction = 0;
 
   @override
   void initState() {
     super.initState();
     _speech = stt.SpeechToText();
-    _startInteraction();
+    _startInteraction('start');
   }
 
   @override
@@ -60,33 +60,6 @@ class SpeechScreenState extends State<SpeechScreen>
         centerTitle: true,
       ),
       backgroundColor: Colors.black,
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      floatingActionButton: Visibility(
-        visible: !_isSpeaking,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            AvatarGlow(
-              animate: _isListening,
-              glowColor: Theme.of(context).primaryColor,
-              endRadius: 75.0,
-              duration: const Duration(milliseconds: 2000),
-              repeat: true,
-              child: FloatingActionButton(
-                onPressed: _listen,
-                child: Icon(_isListening ? Icons.mic : Icons.mic_none),
-              ),
-            ),
-            AvatarGlow(
-              endRadius: 75.0,
-              child: FloatingActionButton(
-                onPressed: _play,
-                child: const Icon(Icons.play_arrow),
-              ),
-            ),
-          ],
-        ),
-      ),
       body: SizedBox(
         height: double.infinity,
         width: double.infinity,
@@ -113,24 +86,35 @@ class SpeechScreenState extends State<SpeechScreen>
     );
   }
 
-  Future<void> _startInteraction() async {
-    setState(() {
-      _isSpeaking = true;
-      _isListening = false;
-    });
+  Future<void> _startInteraction(String status) async {
+    if (status == 'start') {
+      _text = 'Olá, sou Asimov. Como posso te ajudar?';
+    } else if (status == 'error') {
+      _text = 'Não entendi o que você disse, poderia repetir?';
+      _interaction = 0;
+    }
 
-    await Future.delayed(const Duration(seconds: 1));
-    await flutterTts.setLanguage('pt-BR');
-    await flutterTts.speak(_text);
-
-    flutterTts.setCompletionHandler(() {
+    if ((status == 'start' || status == 'error') && _interaction == 0) {
       setState(() {
-        _isSpeaking = false;
+        _isListening = false;
+        _isSpeaking = true;
       });
-    });
 
-    await Future.delayed(const Duration(seconds: 3));
-    _listen();
+      await Future.delayed(const Duration(seconds: 1));
+      await flutterTts.setLanguage('pt-BR');
+      await flutterTts.speak(_text);
+
+      flutterTts.setCompletionHandler(() {
+        setState(() {
+          _isSpeaking = false;
+        });
+        _listen();
+      });
+    } else if (status == 'repeat') {
+      _isListening = false;
+      await Future.delayed(const Duration(seconds: 1));
+      _listen();
+    }
   }
 
   void _listen() async {
@@ -140,7 +124,7 @@ class SpeechScreenState extends State<SpeechScreen>
         onError: (val) {
           if (val.errorMsg == 'error_speech_timeout' ||
               val.errorMsg == 'error_no_match') {
-            _startInteraction();
+            _startInteraction('error');
           }
         },
       );
@@ -151,6 +135,9 @@ class SpeechScreenState extends State<SpeechScreen>
             setState(() {
               _text = val.recognizedWords;
             });
+            if (val.finalResult) {
+              _play();
+            }
           },
         );
       }
@@ -169,15 +156,18 @@ class SpeechScreenState extends State<SpeechScreen>
     });
 
     await flutterTts.setLanguage('pt-BR');
-    await flutterTts.speak(_text);
+
+    List<int> latin1Bytes = latin1.encode(_voice);
+    String textUtf8 = utf8.decode(latin1Bytes);
+    await flutterTts.speak(textUtf8);
 
     flutterTts.setCompletionHandler(() {
       setState(() async {
         _isSpeaking = false;
         _isListening = true;
-        await Future.delayed(const Duration(seconds: 3));
+        _interaction++;
         _text = 'Posso te ajudar em algo mais?';
-        _startInteraction();
+        _startInteraction('repeat');
       });
     });
   }
@@ -186,7 +176,7 @@ class SpeechScreenState extends State<SpeechScreen>
     final headers = {
       'Content-Type': 'application/json',
       'Authorization':
-          'Bearer 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',
+          'Bearer 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',
     };
 
     final data = {
